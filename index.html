@@ -1,67 +1,171 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local workspace = game:GetService("Workspace")
 
 -- Cấu hình
 local COLLECT_DISTANCE = 50  -- Khoảng cách tìm kiếm Bond
-local TELEPORT_ENABLED = true  -- Bật/tắt teleport
+local TELEPORT_ENABLED = false  -- Tắt teleport, dùng tween
 local AUTO_COLLECT_ENABLED = true  -- Bật/tắt auto collect
-local COLLECT_DELAY = 0.1  -- Delay giữa mỗi lần check
+local COLLECT_DELAY = 0.5  -- Tăng delay để ổn định hơn
+local USE_TWEEN = true  -- Dùng tween thay vì teleport
 
--- Tên chính xác của Bond trong game
+-- Tên chính xác của Bond trong game - mở rộng danh sách
 local BOND_NAMES = {
     "Treasury Bond",
-    "TreasuryBond",
-    "Treasury_Bond"
+    "TreasuryBond", 
+    "Treasury_Bond",
+    "Bond",
+    "Coin",
+    "Money",
+    "Cash",
+    "Dollar"
 }
 
 -- Tracking
 local totalBondsCollected = 0
 local lastBondCount = 0
+local isMoving = false
+
+-- Global stop flag
+_G.Stop_Tween = false
+_G.Clip = false
+
+-- Function Tween từ bạn
+function Tween(P1)
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local humanoidRootPart = character.HumanoidRootPart
+    local Distance = (P1.Position - humanoidRootPart.Position).Magnitude
+    
+    Speed = 500
+    
+    local virtualFloor = Instance.new("Part")
+    virtualFloor.Size = Vector3.new(20, 1, 20) 
+    virtualFloor.Anchored = true
+    virtualFloor.CanCollide = true
+    virtualFloor.Transparency = 1 -- Invisible
+    virtualFloor.Name = "VirtualFloor"
+    
+    local function updateFloorPosition()
+        if virtualFloor and virtualFloor.Parent then
+            virtualFloor.CFrame = CFrame.new(humanoidRootPart.Position.X, humanoidRootPart.Position.Y - 3.5, humanoidRootPart.Position.Z)
+        end
+    end
+    
+    virtualFloor.Parent = workspace
+    updateFloorPosition()
+    
+    local floorConnection = game:GetService("RunService").Heartbeat:Connect(updateFloorPosition)
+    
+    local tween = game:GetService("TweenService"):Create(
+        humanoidRootPart,
+        TweenInfo.new(Distance/Speed, Enum.EasingStyle.Linear),
+        {CFrame = P1}
+    )
+    
+    tween:Play()
+    
+    if _G.Stop_Tween then
+        tween:Cancel()
+        return false
+    end
+    
+    _G.Clip = true
+    wait(Distance/Speed)
+    _G.Clip = false
+    
+    if floorConnection then
+        floorConnection:Disconnect()
+    end
+    if virtualFloor and virtualFloor.Parent then
+        virtualFloor:Destroy()
+    end
+    
+    return true
+end
 
 -- Hàm kiểm tra Bond hiện tại trong leaderstats
 local function getCurrentBonds()
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
     if leaderstats then
-        -- Tìm stat Bond chính xác
-        local bondStat = leaderstats:FindFirstChild("Bond") or 
-                         leaderstats:FindFirstChild("Bonds") or
-                         leaderstats:FindFirstChild("Treasury") or
-                         leaderstats:FindFirstChild("Money")
-        if bondStat and bondStat.Value then
-            return bondStat.Value
+        -- Tìm stat Bond chính xác - mở rộng tìm kiếm
+        for _, statName in pairs({"Bond", "Bonds", "Treasury", "Money", "Cash", "Coin", "Dollar", "Currency"}) do
+            local bondStat = leaderstats:FindFirstChild(statName)
+            if bondStat and bondStat.Value then
+                return bondStat.Value
+            end
         end
     end
     
     return 0
 end
 
--- Hàm tìm tất cả Treasury Bond trong workspace
+-- Hàm debug để xem cấu trúc leaderstats
+local function debugLeaderstats()
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if leaderstats then
+        print("📊 Leaderstats found:")
+        for _, child in pairs(leaderstats:GetChildren()) do
+            print("  - " .. child.Name .. " = " .. tostring(child.Value))
+        end
+    else
+        print("❌ No leaderstats found")
+    end
+end
+
+-- Hàm tìm tất cả Bond trong workspace với debug
 local function findAllBonds()
     local bonds = {}
     
-    local function searchInFolder(folder)
+    local function searchInFolder(folder, depth)
+        depth = depth or 0
+        if depth > 10 then return end -- Tránh infinite loop
+        
         for _, obj in pairs(folder:GetChildren()) do
-            -- Tìm Treasury Bond chính xác
+            -- Tìm Bond với nhiều pattern khác nhau
+            local objName = obj.Name:lower()
+            
             for _, bondName in pairs(BOND_NAMES) do
-                if obj.Name == bondName or string.find(obj.Name, bondName) then
-                    -- Treasury Bond thường là Part hoặc Model có thể click
-                    if obj:IsA("Part") or (obj:IsA("Model") and obj.PrimaryPart) then
-                        local position = nil
-                        if obj:IsA("Part") then
-                            position = obj.Position
-                        elseif obj:IsA("Model") and obj.PrimaryPart then
+                if objName:find(bondName:lower()) or obj.Name == bondName then
+                    local position = nil
+                    
+                    -- Kiểm tra nhiều loại object
+                    if obj:IsA("Part") then
+                        position = obj.Position
+                        print("🔍 Found Bond (Part):", obj.Name, "at", position)
+                    elseif obj:IsA("Model") then
+                        if obj.PrimaryPart then
                             position = obj.PrimaryPart.Position
+                        else
+                            local firstPart = obj:FindFirstChildOfClass("Part")
+                            if firstPart then
+                                position = firstPart.Position
+                            end
                         end
-                        
                         if position then
-                            table.insert(bonds, {
-                                object = obj,
-                                position = position,
-                                name = obj.Name
-                            })
+                            print("🔍 Found Bond (Model):", obj.Name, "at", position)
                         end
+                    elseif obj:IsA("Tool") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            position = handle.Position
+                            print("🔍 Found Bond (Tool):", obj.Name, "at", position)
+                        end
+                    end
+                    
+                    if position then
+                        table.insert(bonds, {
+                            object = obj,
+                            position = position,
+                            name = obj.Name,
+                            type = obj.ClassName
+                        })
                     end
                     break
                 end
@@ -69,12 +173,23 @@ local function findAllBonds()
             
             -- Tìm trong các folder con
             if obj:IsA("Folder") or obj:IsA("Model") then
-                searchInFolder(obj)
+                searchInFolder(obj, depth + 1)
             end
         end
     end
     
     searchInFolder(workspace)
+    
+    -- Debug: In ra tất cả Bond tìm được
+    if #bonds > 0 then
+        print("🎯 Total bonds found:", #bonds)
+        for i, bond in ipairs(bonds) do
+            print("  " .. i .. ". " .. bond.name .. " (" .. bond.type .. ")")
+        end
+    else
+        print("❌ No bonds found in workspace")
+    end
+    
     return bonds
 end
 
@@ -83,34 +198,7 @@ local function getDistance(pos1, pos2)
     return (pos1 - pos2).Magnitude
 end
 
--- Hàm teleport đến Bond
-local function teleportToBond(bondData)
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        return false
-    end
-    
-    local hrp = character.HumanoidRootPart
-    local targetPos = bondData.position + Vector3.new(0, 5, 0) -- Teleport hơi cao một chút
-    
-    hrp.CFrame = CFrame.new(targetPos)
-    print("🚀 Teleported to Bond:", bondData.name, "at", bondData.position)
-    return true
-end
-
--- Hàm di chuyển đến Bond (alternative cho teleport)
-local function walkToBond(bondData)
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("Humanoid") then
-        return false
-    end
-    
-    local humanoid = character.Humanoid
-    humanoid:MoveTo(bondData.position)
-    return true
-end
-
--- Hàm collect Treasury Bond bằng cách click
+-- Hàm collect Bond với nhiều phương pháp khác nhau
 local function collectBond(bondData)
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
@@ -120,63 +208,96 @@ local function collectBond(bondData)
     local hrp = character.HumanoidRootPart
     local distance = getDistance(hrp.Position, bondData.position)
     
-    -- Teleport gần Bond để click
+    print("🎯 Attempting to collect:", bondData.name, "Distance:", math.floor(distance))
+    
+    -- Di chuyển đến Bond nếu quá xa
     if distance > COLLECT_DISTANCE then
-        if TELEPORT_ENABLED then
-            teleportToBond(bondData)
+        if USE_TWEEN then
+            print("🚶 Moving to bond with tween...")
+            isMoving = true
+            local success = Tween(CFrame.new(bondData.position + Vector3.new(0, 3, 0)))
+            isMoving = false
+            if not success then
+                return false
+            end
+            task.wait(0.2)
+        elseif TELEPORT_ENABLED then
+            hrp.CFrame = CFrame.new(bondData.position + Vector3.new(0, 3, 0))
             task.wait(0.1)
         else
-            walkToBond(bondData)
+            print("❌ Bond too far and movement disabled")
             return false
         end
     end
     
-    -- Click vào Treasury Bond để collect
+    -- Thử nhiều phương pháp collect
+    local success = false
+    
     pcall(function()
         local targetObject = bondData.object
         
-        -- Method 1: Tìm ClickDetector
-        local clickDetector = targetObject:FindFirstChildOfClass("ClickDetector")
-        if clickDetector then
-            fireclickdetector(clickDetector)
-            print("🎯 Clicked Treasury Bond with ClickDetector")
-            return true
+        -- Method 1: ClickDetector
+        local function tryClickDetector(obj)
+            local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
+            if clickDetector then
+                fireclickdetector(clickDetector)
+                print("✅ Clicked with ClickDetector")
+                success = true
+                return true
+            end
+            return false
         end
         
-        -- Method 2: Nếu là Part, simulate mouse click
-        if targetObject:IsA("Part") then
-            -- Dùng mouse.Target để click
-            local mouse = LocalPlayer:GetMouse()
-            mouse.Target = targetObject
-            
-            -- Hoặc dùng VirtualInputManager để click trực tiếp
-            local cam = workspace.CurrentCamera
-            local screenPoint = cam:WorldToScreenPoint(bondData.position)
-            
-            local VIM = game:GetService("VirtualInputManager")
-            VIM:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, true, nil, 0)
-            task.wait(0.05)
-            VIM:SendMouseButtonEvent(screenPoint.X, screenPoint.Y, 0, false, nil, 0)
-            print("🎯 Clicked Treasury Bond with VIM")
+        -- Method 2: ProximityPrompt
+        local function tryProximityPrompt(obj)
+            local proximityPrompt = obj:FindFirstChildOfClass("ProximityPrompt")
+            if proximityPrompt then
+                fireproximityprompt(proximityPrompt)
+                print("✅ Triggered ProximityPrompt")
+                success = true
+                return true
+            end
+            return false
         end
         
-        -- Method 3: Nếu là Model, tìm Part chính để click
-        if targetObject:IsA("Model") then
-            local mainPart = targetObject.PrimaryPart or targetObject:FindFirstChildOfClass("Part")
-            if mainPart then
-                local clickDetector = mainPart:FindFirstChildOfClass("ClickDetector")
-                if clickDetector then
-                    fireclickdetector(clickDetector)
-                    print("🎯 Clicked Treasury Bond Model")
+        -- Method 3: Touch/Contact
+        local function tryTouch(obj)
+            if obj:IsA("Part") then
+                -- Simulate touch
+                hrp.CFrame = CFrame.new(obj.Position)
+                print("✅ Touched part")
+                success = true
+                return true
+            end
+            return false
+        end
+        
+        -- Thử từng method
+        if not tryClickDetector(targetObject) then
+            if not tryProximityPrompt(targetObject) then
+                -- Nếu là Model, thử trên các Part con
+                if targetObject:IsA("Model") then
+                    for _, child in pairs(targetObject:GetChildren()) do
+                        if child:IsA("Part") then
+                            if tryClickDetector(child) or tryProximityPrompt(child) then
+                                break
+                            end
+                        end
+                    end
+                end
+                
+                -- Method cuối cùng: Touch
+                if not success then
+                    tryTouch(targetObject)
                 end
             end
         end
     end)
     
-    return true
+    return success
 end
 
--- Hàm kiểm tra Bond đã được collect chưa
+-- Hàm kiểm tra Bond còn tồn tại không
 local function isBondStillThere(bondData)
     return bondData.object and bondData.object.Parent
 end
@@ -184,126 +305,69 @@ end
 -- Main Auto-Collect Loop
 local function startAutoBondCollector()
     print("🤖 Auto Bond Collector Started!")
-    print("📍 Teleport:", TELEPORT_ENABLED and "ON" or "OFF")
+    print("🚶 Using Tween Movement:", USE_TWEEN and "ON" or "OFF")
+    print("🚀 Teleport:", TELEPORT_ENABLED and "ON" or "OFF")
     print("🔄 Auto Collect:", AUTO_COLLECT_ENABLED and "ON" or "OFF")
     print("📏 Collect Distance:", COLLECT_DISTANCE)
     
+    -- Debug leaderstats lần đầu
+    task.wait(1)
+    debugLeaderstats()
+    
     while AUTO_COLLECT_ENABLED do
-        pcall(function()
-            -- Update Bond count
-            local currentBonds = getCurrentBonds()
-            if currentBonds ~= lastBondCount then
-                local gained = currentBonds - lastBondCount
-                if gained > 0 then
-                    totalBondsCollected = totalBondsCollected + gained
-                    print("💰 Bonds gained:", gained, "| Total:", currentBonds, "| Session:", totalBondsCollected)
+        if not isMoving then
+            pcall(function()
+                -- Update Bond count
+                local currentBonds = getCurrentBonds()
+                if currentBonds ~= lastBondCount then
+                    local gained = currentBonds - lastBondCount
+                    if gained > 0 then
+                        totalBondsCollected = totalBondsCollected + gained
+                        print("💰 Bonds gained:", gained, "| Total:", currentBonds, "| Session:", totalBondsCollected)
+                    end
+                    lastBondCount = currentBonds
                 end
-                lastBondCount = currentBonds
-            end
-            
-            -- Tìm và collect Bond
-            local bonds = findAllBonds()
-            if #bonds > 0 then
-                print("🔍 Found", #bonds, "Bond(s) in area")
                 
-                -- Sắp xếp theo khoảng cách gần nhất
-                local character = LocalPlayer.Character
-                if character and character:FindFirstChild("HumanoidRootPart") then
-                    local myPos = character.HumanoidRootPart.Position
-                    
-                    table.sort(bonds, function(a, b)
-                        return getDistance(myPos, a.position) < getDistance(myPos, b.position)
-                    end)
-                    
-                    -- Collect Bond gần nhất
-                    for i, bondData in ipairs(bonds) do
-                        if isBondStillThere(bondData) then
-                            local distance = getDistance(myPos, bondData.position)
-                            print("🎯 Targeting Bond:", bondData.name, "Distance:", math.floor(distance))
-                            
-                            if collectBond(bondData) then
-                                print("✅ Collected Bond:", bondData.name)
-                                task.wait(0.2) -- Chờ collect hoàn thành
-                                break -- Chỉ collect 1 bond mỗi lần
+                -- Tìm và collect Bond
+                local bonds = findAllBonds()
+                if #bonds > 0 then
+                    -- Sắp xếp theo khoảng cách gần nhất
+                    local character = LocalPlayer.Character
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        local myPos = character.HumanoidRootPart.Position
+                        
+                        table.sort(bonds, function(a, b)
+                            return getDistance(myPos, a.position) < getDistance(myPos, b.position)
+                        end)
+                        
+                        -- Collect Bond gần nhất
+                        for i, bondData in ipairs(bonds) do
+                            if isBondStillThere(bondData) then
+                                if collectBond(bondData) then
+                                    print("✅ Successfully collected:", bondData.name)
+                                    task.wait(1) -- Chờ lâu hơn sau khi collect
+                                    break -- Chỉ collect 1 bond mỗi lần
+                                end
                             end
                         end
                     end
+                else
+                    print("⏳ No bonds found, waiting...")
                 end
-            end
-        end)
+            end)
+        end
         
         task.wait(COLLECT_DELAY)
     end
 end
 
--- ESP cho Bond (hiển thị vị trí)
-local bondESP = {}
-
-local function createBondESP(bondData)
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 100, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = bondData.object
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    frame.BackgroundTransparency = 0.3
-    frame.BorderSizePixel = 0
-    frame.Parent = billboard
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "💰 Treasury Bond"
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.Parent = frame
-    
-    bondESP[bondData.object] = billboard
-end
-
-local function updateBondESP()
-    -- Xóa ESP cũ
-    for obj, billboard in pairs(bondESP) do
-        if not obj.Parent then
-            billboard:Destroy()
-            bondESP[obj] = nil
-        end
-    end
-    
-    -- Tạo ESP mới
-    local bonds = findAllBonds()
-    for _, bondData in ipairs(bonds) do
-        if not bondESP[bondData.object] then
-            createBondESP(bondData)
-        end
-    end
-end
-
--- ESP Update Loop
-task.spawn(function()
-    while true do
-        pcall(updateBondESP)
-        task.wait(2) -- Update ESP mỗi 2 giây
-    end
-end)
-
--- Khởi động
-lastBondCount = getCurrentBonds()
-print("🚀 Starting Bond Collector...")
-print("💰 Current Bonds:", lastBondCount)
-
--- Bắt đầu auto collector
-task.spawn(startAutoBondCollector)
-
 -- Commands để điều khiển
 _G.AutoBondSettings = {
+    toggleTween = function()
+        USE_TWEEN = not USE_TWEEN
+        print("🚶 Tween Movement:", USE_TWEEN and "ON" or "OFF")
+    end,
+    
     toggleTeleport = function()
         TELEPORT_ENABLED = not TELEPORT_ENABLED
         print("🚀 Teleport:", TELEPORT_ENABLED and "ON" or "OFF")
@@ -322,18 +386,39 @@ _G.AutoBondSettings = {
         print("📏 Collect Distance set to:", distance)
     end,
     
+    debugBonds = function()
+        print("🔍 Searching for bonds...")
+        findAllBonds()
+    end,
+    
+    debugStats = function()
+        debugLeaderstats()
+    end,
+    
     getStats = function()
         print("📊 Bond Collector Stats:")
         print("💰 Current Bonds:", getCurrentBonds())
         print("🎯 Session Collected:", totalBondsCollected)
+        print("🚶 Tween Movement:", USE_TWEEN and "ON" or "OFF")
         print("🚀 Teleport:", TELEPORT_ENABLED and "ON" or "OFF")
         print("🔄 Auto Collect:", AUTO_COLLECT_ENABLED and "ON" or "OFF")
     end
 }
 
-print("✅ Auto Bond Collector loaded!")
+-- Khởi động
+lastBondCount = getCurrentBonds()
+print("🚀 Starting Enhanced Bond Collector...")
+print("💰 Current Bonds:", lastBondCount)
+
+-- Bắt đầu auto collector
+task.spawn(startAutoBondCollector)
+
+print("✅ Enhanced Auto Bond Collector loaded!")
 print("📝 Commands:")
+print("_G.AutoBondSettings.toggleTween() - Bật/tắt tween movement")
 print("_G.AutoBondSettings.toggleTeleport() - Bật/tắt teleport")
 print("_G.AutoBondSettings.toggleAutoCollect() - Bật/tắt auto collect") 
 print("_G.AutoBondSettings.setDistance(50) - Đặt khoảng cách collect")
+print("_G.AutoBondSettings.debugBonds() - Debug tìm bonds")
+print("_G.AutoBondSettings.debugStats() - Debug leaderstats")
 print("_G.AutoBondSettings.getStats() - Xem thống kê")
