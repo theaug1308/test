@@ -1,7 +1,8 @@
+repeat wait() until game:IsLoaded()
 if getgenv().MyMultiScriptV2 then return end
 getgenv().MyMultiScriptV2 = true
 
-local TimeHop = 300
+local TimeHop = 60
 
 local placeId = game.PlaceId
 local players = game:GetService("Players")
