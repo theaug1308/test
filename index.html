@@ -1,57 +1,314 @@
-repeat wait() until game:IsLoaded()
-if getgenv().MyMultiScriptV2 then return end
-getgenv().MyMultiScriptV2 = true
+local p,tps,uis,rs,ts,lp,pg = game:GetService("Players"),game:GetService("TeleportService"),game:GetService("UserInputService"),game:GetService("RunService"),game:GetService("TweenService"),game.Players.LocalPlayer,game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
-local TimeHop = 120
+local fe,fc,ji,jp,ws = false,nil,"",50,16
+local c1,c2,c3,c4,c5 = Color3.fromRGB,UDim2.new,Vector3.new,Instance.new,Enum.Font.Gotham
+local uiTransparency,keybind = 0.05,Enum.KeyCode.RightShift
 
-local placeId = game.PlaceId
-local players = game:GetService("Players")
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local teleportService = game:GetService("TeleportService")
+local sg = c4("ScreenGui")
+sg.Name,sg.ResetOnSpawn,sg.Parent = "SimpleUI",false,pg
 
-if placeId == 70876832253163 or placeId == 98018823628597 then
+local mf = c4("Frame")
+mf.Name,mf.Size,mf.Position,mf.BackgroundColor3,mf.BackgroundTransparency,mf.BorderSizePixel,mf.Parent = "MainFrame",c2(0,300,0,350),c2(0.5,-150,0.5,-175),c1(30,30,35),uiTransparency,0,sg
+
+local function cr(p,r) local c=c4("UICorner") c.CornerRadius,c.Parent=UDim.new(0,r),p return c end
+cr(mf,8)
+
+local stroke = c4("UIStroke")
+stroke.Color,stroke.Thickness,stroke.Parent = c1(80,80,90),1,mf
+
+local tt = c4("TextLabel")
+tt.Size,tt.Position,tt.BackgroundTransparency,tt.Text,tt.TextColor3,tt.TextSize,tt.Font,tt.Parent = c2(1,-60,0,35),c2(0,15,0,8),1,"THEAUG HUB",c1(255,255,255),18,Enum.Font.GothamBold,mf
+
+local cb = c4("TextButton")
+cb.Size,cb.Position,cb.BackgroundColor3,cb.Text,cb.TextColor3,cb.TextSize,cb.Font,cb.BorderSizePixel,cb.Parent = c2(0,22,0,22),c2(1,-25,0,10),c1(200,80,80),"X",c1(255,255,255),14,Enum.Font.GothamBold,0,mf
+cr(cb,5)
+
+local mb = c4("TextButton")
+mb.Size,mb.Position,mb.BackgroundColor3,mb.Text,mb.TextColor3,mb.TextSize,mb.Font,mb.BorderSizePixel,mb.Parent = c2(0,22,0,22),c2(1,-50,0,10),c1(150,150,150),"-",c1(255,255,255),16,Enum.Font.GothamBold,0,mf
+cr(mb,5)
+
+local tf = c4("Frame")
+tf.Size,tf.Position,tf.BackgroundTransparency,tf.Parent = c2(1,-30,0,30),c2(0,15,0,48),1,mf
+
+local cf = c4("Frame")
+cf.Size,cf.Position,cf.BackgroundTransparency,cf.BorderSizePixel,cf.Parent = c2(1,-30,1,-90),c2(0,15,0,83),1,0,mf
+
+local tabs,activeTab = {},nil
+
+local function createTab(name,index)
+    local tb = c4("TextButton")
+    tb.Size,tb.Position,tb.BackgroundColor3,tb.Text,tb.TextColor3,tb.TextSize,tb.Font,tb.BorderSizePixel,tb.Parent = c2(0.25,0,1,0),c2(0.25*(index-1),0,0,0),c1(50,50,55),name,c1(200,200,200),10,c5,0,tf
+    cr(tb,5)
     
-    task.spawn(function()
-        pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/vuthaison1308/vuthaison1308/refs/heads/main/DR.lua"))()
-        end)
-    end)
-
-    task.spawn(function()
-        local playerToTeleport = players.LocalPlayer
-        local targetPlaceId = 116495829188952
-        task.wait(TimeHop)
-        pcall(function()
-            teleportService:Teleport(targetPlaceId, playerToTeleport)
-        end)
-    end)
-
-elseif placeId == 116495829188952 then
-
-    local localPlayer = players.LocalPlayer
-    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    task.spawn(function()
-        local coordinates = {
-            Vector3.new(38, 7, 100), Vector3.new(38, 7, 115),
-            Vector3.new(38, 7, 130), Vector3.new(38, 7, 145)
-        }
-        while true do
-            for _, pos in ipairs(coordinates) do
-                if rootPart then rootPart.CFrame = CFrame.new(pos) end
-                task.wait(1.5)
-            end
+    local tc = c4("Frame")
+    tc.Size,tc.BackgroundTransparency,tc.Visible,tc.Parent = c2(1,0,1,0),1,false,cf
+    
+    tabs[name] = {button=tb,content=tc}
+    
+    tb.MouseButton1Click:Connect(function()
+        for _,tab in pairs(tabs) do
+            tab.button.BackgroundColor3,tab.button.TextColor3,tab.content.Visible = c1(50,50,55),c1(200,200,200),false
         end
-    end)
-
-    task.spawn(function()
-        local createPartyEvent = replicatedStorage:WaitForChild("Shared"):WaitForChild("Network"):WaitForChild("RemoteEvent"):WaitForChild("CreateParty")
-        local args = {{isPrivate = true, maxMembers = 1, trainId = "default", gameMode = "Normal"}}
-        while true do
-            createPartyEvent:FireServer(unpack(args))
-            task.wait(0.5)
-        end
+        tb.BackgroundColor3,tb.TextColor3,tc.Visible,activeTab = c1(80,120,200),c1(255,255,255),true,name
     end)
     
+    return tc
 end
+
+local jobTab,speedTab,playerTab,uiTab = createTab("Job ID",1),createTab("Speed",2),createTab("Players",3),createTab("UI",4)
+
+local function btn(n,t,pos,size,color,par)
+    local b = c4("TextButton")
+    b.Name,b.Size,b.Position,b.BackgroundColor3,b.Text,b.TextColor3,b.TextSize,b.Font,b.BorderSizePixel,b.Parent = n,size,pos,color,t,c1(255,255,255),11,c5,0,par
+    cr(b,5)
+    
+    b.MouseEnter:Connect(function()
+        ts:Create(b,TweenInfo.new(0.2),{BackgroundColor3=c1(math.min(255,color.R*255*1.2),math.min(255,color.G*255*1.2),math.min(255,color.B*255*1.2))}):Play()
+    end)
+    
+    b.MouseLeave:Connect(function()
+        ts:Create(b,TweenInfo.new(0.2),{BackgroundColor3=color}):Play()
+    end)
+    
+    return b
+end
+
+local function slider(name,pos,min_val,max_val,default_val,callback,parent)
+    local container = c4("Frame")
+    container.Size,container.Position,container.BackgroundTransparency,container.Parent = c2(1,0,0,45),pos,1,parent
+    
+    local label = c4("TextLabel")
+    label.Size,label.BackgroundTransparency,label.Text,label.TextColor3,label.TextSize,label.Font,label.Parent = c2(1,0,0,18),1,name..": "..default_val,c1(255,255,255),11,c5,container
+    
+    local track = c4("Frame")
+    track.Size,track.Position,track.BackgroundColor3,track.BorderSizePixel,track.Parent = c2(1,0,0,12),c2(0,0,0,22),c1(60,60,70),0,container
+    cr(track,6)
+    
+    local fill = c4("Frame")
+    fill.Size,fill.BackgroundColor3,fill.BorderSizePixel,fill.Parent = c2((default_val-min_val)/(max_val-min_val),0,1,0),c1(120,140,180),0,track
+    cr(fill,6)
+    
+    local handle = c4("Frame")
+    handle.Size,handle.Position,handle.BackgroundColor3,handle.BorderSizePixel,handle.Parent = c2(0,12,0,12),c2((default_val-min_val)/(max_val-min_val),-6,0.5,-6),c1(255,255,255),0,track
+    cr(handle,6)
+    
+    local button = c4("TextButton")
+    button.Size,button.BackgroundTransparency,button.Text,button.Parent = c2(1,0,1,0),1,"",handle
+    
+    local dragging = false
+    button.MouseButton1Down:Connect(function() dragging = true end)
+    
+    uis.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    
+    uis.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local rel_x = math.clamp((i.Position.X-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+            handle.Position,fill.Size = c2(rel_x,-6,0.5,-6),c2(rel_x,0,1,0)
+            
+            local val = math.floor(min_val+rel_x*(max_val-min_val))
+            label.Text = name..": "..val
+            callback(val)
+        end
+    end)
+    
+    return container
+end
+
+local jtb = c4("TextBox")
+jtb.Size,jtb.Position,jtb.BackgroundColor3,jtb.Text,jtb.PlaceholderText,jtb.PlaceholderColor3,jtb.TextColor3,jtb.TextSize,jtb.Font,jtb.BorderSizePixel,jtb.Parent = c2(1,0,0,30),c2(0,0,0,8),c1(40,40,45),"","Enter Job ID",c1(120,120,130),c1(255,255,255),11,c5,0,jobTab
+cr(jtb,5)
+
+local jb = btn("JoinButton","JOIN",c2(0,0,0,45),c2(0.48,0,0,25),c1(80,160,100),jobTab)
+local cpb = btn("CopyButton","COPY",c2(0.52,0,0,45),c2(0.48,0,0,25),c1(100,140,200),jobTab)
+local rb = btn("RejoinButton","REJOIN",c2(0,0,0,75),c2(0.48,0,0,25),c1(200,140,80),jobTab)
+local hb = btn("HopButton","HOP",c2(0.52,0,0,75),c2(0.48,0,0,25),c1(160,100,200),jobTab)
+
+slider("WalkSpeed",c2(0,0,0,8),16,300,16,function(val) 
+    ws = val
+    local c = lp.Character
+    if c and c:FindFirstChild("Humanoid") then
+        c.Humanoid.WalkSpeed = ws
+    end
+    _G.WS = ws
+end,speedTab)
+
+slider("JumpPower",c2(0,0,0,58),50,150,50,function(val) 
+    jp = val
+    local c = lp.Character
+    if c and c:FindFirstChild("Humanoid") then
+        if c.Humanoid:FindFirstChild("JumpHeight") then
+            c.Humanoid.JumpHeight = val
+        else
+            c.Humanoid.JumpPower = val
+        end
+    end
+end,speedTab)
+
+local stopBtn = btn("StopTween","STOP TWEEN",c2(0,0,0,8),c2(1,0,0,30),c1(200,80,80),playerTab)
+
+local pf = c4("ScrollingFrame")
+pf.Size,pf.Position,pf.BackgroundTransparency,pf.BorderSizePixel,pf.ScrollBarThickness,pf.Parent = c2(1,0,1,-45),c2(0,0,0,45),1,0,4,playerTab
+
+local uil = c4("UIListLayout")
+uil.SortOrder,uil.Padding,uil.Parent = Enum.SortOrder.Name,UDim.new(0,3),pf
+
+local kbl = c4("TextLabel")
+kbl.Size,kbl.BackgroundTransparency,kbl.Text,kbl.TextColor3,kbl.TextSize,kbl.Font,kbl.Parent = c2(1,0,0,20),1,"Toggle Key: RightShift",c1(255,255,255),11,c5,uiTab
+
+slider("Transparency",c2(0,0,0,25),0,95,5,function(val)
+    uiTransparency = val/100
+    mf.BackgroundTransparency = uiTransparency
+end,uiTab)
+
+function Tween(P1)
+    local player,character,humanoidRootPart = lp,lp.Character,lp.Character.HumanoidRootPart
+    local Distance = (P1.Position-humanoidRootPart.Position).Magnitude
+    
+    local Speed = Distance<150 and 5000 or Distance<200 and 1500 or Distance<300 and 800 or Distance<500 and 500 or 250
+    
+    local virtualFloor = c4("Part")
+    virtualFloor.Size,virtualFloor.Anchored,virtualFloor.CanCollide,virtualFloor.Transparency,virtualFloor.Name = c3(20,1,20),true,true,1,"VirtualFloor"
+    
+    local function updateFloorPosition()
+        if virtualFloor and virtualFloor.Parent then
+            virtualFloor.CFrame = CFrame.new(humanoidRootPart.Position.X,humanoidRootPart.Position.Y-3.5,humanoidRootPart.Position.Z)
+        end
+    end
+    
+    virtualFloor.Parent = workspace
+    updateFloorPosition()
+    
+    local floorConnection = rs.Heartbeat:Connect(updateFloorPosition)
+    
+    local tweenObj = ts:Create(humanoidRootPart,TweenInfo.new(Distance/Speed,Enum.EasingStyle.Linear),{CFrame=P1})
+    tweenObj:Play()
+    
+    _G.CurrentTween = tweenObj
+    _G.Clip = true
+    
+    tweenObj.Completed:Connect(function()
+        _G.Clip = false
+        if floorConnection then floorConnection:Disconnect() end
+        if virtualFloor and virtualFloor.Parent then virtualFloor:Destroy() end
+        _G.CurrentTween = nil
+    end)
+end
+
+local function updatePlayersList()
+    for _,child in pairs(pf:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    for _,player in pairs(p:GetPlayers()) do
+        if player ~= lp then
+            local pb = btn("Player_"..player.Name,player.Name,c2(0,0,0,0),c2(1,0,0,25),c1(70,120,170),pf)
+            pb.MouseButton1Click:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    Tween(player.Character.HumanoidRootPart.CFrame)
+                end
+            end)
+        end
+    end
+    
+    pf.CanvasSize = c2(0,0,0,uil.AbsoluteContentSize.Y)
+end
+
+local function js()
+    ji = jtb.Text
+    if ji ~= "" then tps:TeleportToPlaceInstance(game.PlaceId,ji,lp) end
+end
+
+local function cji()
+    if setclipboard then
+        setclipboard(tostring(game.JobId))
+        jtb.Text = "Copied!"
+        wait(1.5)
+        jtb.Text = ""
+    end
+end
+
+jb.MouseButton1Click:Connect(js)
+cpb.MouseButton1Click:Connect(cji)
+rb.MouseButton1Click:Connect(function() tps:Teleport(game.PlaceId,lp) end)
+hb.MouseButton1Click:Connect(function()
+    local ok,svs = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+    end)
+    if ok and svs.data and #svs.data > 0 then
+        local sv = svs.data[math.random(1,#svs.data)]
+        tps:TeleportToPlaceInstance(game.PlaceId,sv.id,lp)
+    end
+end)
+
+stopBtn.MouseButton1Click:Connect(function()
+    _G.Stop_Tween = true
+    if _G.CurrentTween then
+        _G.CurrentTween:Cancel()
+        _G.CurrentTween = nil
+    end
+    _G.Clip = false
+end)
+
+mb.MouseButton1Click:Connect(function() sg.Enabled = not sg.Enabled end)
+cb.MouseButton1Click:Connect(function() sg:Destroy() end)
+
+uis.InputBegan:Connect(function(i,gp)
+    if not gp and i.KeyCode == keybind then sg.Enabled = not sg.Enabled end
+end)
+
+local dr,ds,sp = false,nil,nil
+mf.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dr,ds,sp = true,i.Position,mf.Position
+    end
+end)
+
+mf.InputChanged:Connect(function(i)
+    if dr and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local dt = i.Position - ds
+        mf.Position = c2(sp.X.Scale,sp.X.Offset + dt.X,sp.Y.Scale,sp.Y.Offset + dt.Y)
+    end
+end)
+
+mf.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dr = false end
+end)
+
+lp.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    char.Humanoid.WalkSpeed = ws
+    if char.Humanoid:FindFirstChild("JumpHeight") then
+        char.Humanoid.JumpHeight = jp
+    else
+        char.Humanoid.JumpPower = jp
+    end
+end)
+
+-- Blox Fruits WalkSpeed Bypass
+spawn(function()
+    while true do
+        pcall(function()
+            if _G.WS and lp.Character and lp.Character:FindFirstChild("Humanoid") and lp.Character:FindFirstChild("HumanoidRootPart") then
+                local h = lp.Character.Humanoid
+                local hrp = lp.Character.HumanoidRootPart
+                
+                if h.MoveDirection.Magnitude > 0 then
+                    local speed = _G.WS or 16
+                    hrp.CFrame = hrp.CFrame + (h.MoveDirection * (speed/16) * 0.1)
+                end
+            end
+        end)
+        rs.Heartbeat:Wait()
+    end
+end)
+
+spawn(function()
+    while true do
+        if activeTab == "Players" then updatePlayersList() end
+        wait(1)
+    end
+end)
+
+tabs["Job ID"].button.BackgroundColor3,tabs["Job ID"].button.TextColor3,tabs["Job ID"].content.Visible = c1(80,120,200),c1(255,255,255),true
