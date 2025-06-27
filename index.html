@@ -1,204 +1,35 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = playerGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 280)
-frame.Position = UDim2.new(0, 10, 0, 10)
-frame.BackgroundColor3 = Color3.new(0, 0, 0)
-frame.BackgroundTransparency = 0.3
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
-local xLabel = Instance.new("TextLabel")
-xLabel.Size = UDim2.new(0, 30, 0, 30)
-xLabel.Position = UDim2.new(0, 10, 0, 20)
-xLabel.Text = "X:"
-xLabel.TextColor3 = Color3.new(1, 1, 1)
-xLabel.BackgroundTransparency = 1
-xLabel.Parent = frame
-
-local xBox = Instance.new("TextBox")
-xBox.Size = UDim2.new(0, 200, 0, 30)
-xBox.Position = UDim2.new(0, 50, 0, 20)
-xBox.Text = "0"
-xBox.BackgroundColor3 = Color3.new(1, 1, 1)
-xBox.Parent = frame
-
-local yLabel = Instance.new("TextLabel")
-yLabel.Size = UDim2.new(0, 30, 0, 30)
-yLabel.Position = UDim2.new(0, 10, 0, 70)
-yLabel.Text = "Y:"
-yLabel.TextColor3 = Color3.new(1, 1, 1)
-yLabel.BackgroundTransparency = 1
-yLabel.Parent = frame
-
-local yBox = Instance.new("TextBox")
-yBox.Size = UDim2.new(0, 200, 0, 30)
-yBox.Position = UDim2.new(0, 50, 0, 70)
-yBox.Text = "10"
-yBox.BackgroundColor3 = Color3.new(1, 1, 1)
-yBox.Parent = frame
-
-local zLabel = Instance.new("TextLabel")
-zLabel.Size = UDim2.new(0, 30, 0, 30)
-zLabel.Position = UDim2.new(0, 10, 0, 120)
-zLabel.Text = "Z:"
-zLabel.TextColor3 = Color3.new(1, 1, 1)
-zLabel.BackgroundTransparency = 1
-zLabel.Parent = frame
-
-local zBox = Instance.new("TextBox")
-zBox.Size = UDim2.new(0, 200, 0, 30)
-zBox.Position = UDim2.new(0, 50, 0, 120)
-zBox.Text = "0"
-zBox.BackgroundColor3 = Color3.new(1, 1, 1)
-zBox.Parent = frame
-
-local methodLabel = Instance.new("TextLabel")
-methodLabel.Size = UDim2.new(0, 280, 0, 20)
-methodLabel.Position = UDim2.new(0, 10, 0, 160)
-methodLabel.Text = "Bypass Method:"
-methodLabel.TextColor3 = Color3.new(1, 1, 1)
-methodLabel.BackgroundTransparency = 1
-methodLabel.Parent = frame
-
-local instantButton = Instance.new("TextButton")
-instantButton.Size = UDim2.new(0, 85, 0, 30)
-instantButton.Position = UDim2.new(0, 10, 0, 180)
-instantButton.Text = "Instant"
-instantButton.BackgroundColor3 = Color3.new(0, 1, 0)
-instantButton.Parent = frame
-
-local tweenButton = Instance.new("TextButton")
-tweenButton.Size = UDim2.new(0, 85, 0, 30)
-tweenButton.Position = UDim2.new(0, 107, 0, 180)
-tweenButton.Text = "Tween"
-tweenButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
-tweenButton.Parent = frame
-
-local velocityButton = Instance.new("TextButton")
-velocityButton.Size = UDim2.new(0, 85, 0, 30)
-velocityButton.Position = UDim2.new(0, 204, 0, 180)
-velocityButton.Text = "Velocity"
-velocityButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
-velocityButton.Parent = frame
-
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 280, 0, 30)
-toggleButton.Position = UDim2.new(0, 10, 0, 220)
-toggleButton.Text = "Start Teleport"
-toggleButton.BackgroundColor3 = Color3.new(0, 1, 0)
-toggleButton.Parent = frame
-
-local teleporting = false
-local connection
-local currentMethod = "instant"
-
-local function updateButtons()
-    instantButton.BackgroundColor3 = currentMethod == "instant" and Color3.new(0, 1, 0) or Color3.new(0.7, 0.7, 0.7)
-    tweenButton.BackgroundColor3 = currentMethod == "tween" and Color3.new(0, 1, 0) or Color3.new(0.7, 0.7, 0.7)
-    velocityButton.BackgroundColor3 = currentMethod == "velocity" and Color3.new(0, 1, 0) or Color3.new(0.7, 0.7, 0.7)
-end
-
-local function instantTeleport(position)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = CFrame.new(position)
-    end
-end
-
-local function tweenTeleport(position)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Linear)
-        local tween = TweenService:Create(character.HumanoidRootPart, tweenInfo, {CFrame = CFrame.new(position)})
-        tween:Play()
-    end
-end
-
-local function velocityTeleport(position)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local hrp = character.HumanoidRootPart
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-        local direction = (position - hrp.Position).Unit
-        bodyVelocity.Velocity = direction * 200
-        bodyVelocity.Parent = hrp
-        
-        spawn(function()
-            game:GetService("Debris"):AddItem(bodyVelocity, 0.1)
-        end)
-    end
-end
-
-local function startTeleport()
-    teleporting = true
-    toggleButton.Text = "Stop Teleport"
-    toggleButton.BackgroundColor3 = Color3.new(1, 0, 0)
-    
-    if currentMethod == "instant" then
         connection = RunService.Heartbeat:Connect(function()
-            local x = tonumber(xBox.Text) or 0
-            local y = tonumber(yBox.Text) or 0
-            local z = tonumber(zBox.Text) or 0
-            instantTeleport(Vector3.new(x, y, z))
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if isTween then
+                    spawn(function() Tween(savedCFrame) end)
+                else
+                    player.Character.HumanoidRootPart.CFrame = savedCFrame
+                end
+            end
         end)
-    elseif currentMethod == "tween" then
-        connection = RunService.Heartbeat:Connect(function()
-            local x = tonumber(xBox.Text) or 0
-            local y = tonumber(yBox.Text) or 0
-            local z = tonumber(zBox.Text) or 0
-            tweenTeleport(Vector3.new(x, y, z))
-        end)
-    elseif currentMethod == "velocity" then
-        connection = RunService.Heartbeat:Connect(function()
-            local x = tonumber(xBox.Text) or 0
-            local y = tonumber(yBox.Text) or 0
-            local z = tonumber(zBox.Text) or 0
-            velocityTeleport(Vector3.new(x, y, z))
-        end)
-    end
-end
-
-local function stopTeleport()
-    teleporting = false
-    toggleButton.Text = "Start Teleport"
-    toggleButton.BackgroundColor3 = Color3.new(0, 1, 0)
-    
-    if connection then
-        connection:Disconnect()
-    end
-end
-
-instantButton.MouseButton1Click:Connect(function()
-    currentMethod = "instant"
-    updateButtons()
-end)
-
-tweenButton.MouseButton1Click:Connect(function()
-    currentMethod = "tween"
-    updateButtons()
-end)
-
-velocityButton.MouseButton1Click:Connect(function()
-    currentMethod = "velocity"
-    updateButtons()
-end)
-
-toggleButton.MouseButton1Click:Connect(function()
-    if teleporting then
-        stopTeleport()
     else
-        startTeleport()
+        if connection then connection:Disconnect() end
     end
 end)
 
-updateButtons()
+-- Toggle UI
+local isMinimized = false
+toggleBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        frame.Size = UDim2.new(0, 200, 0, 25)
+        saveBtn.Visible = false
+        dropdown.Visible = false
+        autoBtn.Visible = false
+        toggleBtn.Text = "+"
+        toggleBtn.Position = UDim2.new(1, -25, 0, 2)
+    else
+        frame.Size = UDim2.new(0, 200, 0, 120)
+        saveBtn.Visible = true
+        dropdown.Visible = true
+        autoBtn.Visible = true
+        toggleBtn.Text = "-"
+        toggleBtn.Position = UDim2.new(1, -25, 0, 95)
+    end
+end)
