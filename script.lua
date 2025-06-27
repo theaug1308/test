@@ -88,7 +88,7 @@ local function Tween(targetCFrame)
     local floorConnection = RunService.Heartbeat:Connect(updateFloor)
     
     -- Tween với speed = 10
-    local tween = TweenService:Create(hrp, TweenInfo.new(distance/10, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    local tween = TweenService:Create(hrp, TweenInfo.new(distance/30, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
     tween:Play()
     tween.Completed:Wait()
     
