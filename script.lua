@@ -67,26 +67,34 @@ local connection
 -- Tween function
 local function Tween(targetCFrame)
     local hrp = player.Character.HumanoidRootPart
-    local currentPos = hrp.Position
-    local targetPos = targetCFrame.Position
+    local distance = (targetCFrame.Position - hrp.Position).Magnitude
     
-    -- Bước 1: Lên cao Y=5
-    local upCFrame = CFrame.new(currentPos.X, 5, currentPos.Z)
-    local upTween = TweenService:Create(hrp, TweenInfo.new(math.abs(5 - currentPos.Y)/10, Enum.EasingStyle.Linear), {CFrame = upCFrame})
-    upTween:Play()
-    upTween.Completed:Wait()
+    -- Tạo floor ảo
+    local virtualFloor = Instance.new("Part")
+    virtualFloor.Size = Vector3.new(20, 1, 20)
+    virtualFloor.Anchored = true
+    virtualFloor.CanCollide = true
+    virtualFloor.Transparency = 1
+    virtualFloor.Name = "VirtualFloor"
+    virtualFloor.Parent = workspace
     
-    -- Bước 2: Tween ngang đến vị trí X, Z với Y=5
-    local horizontalCFrame = CFrame.new(targetPos.X, 5, targetPos.Z)
-    local distance = (Vector3.new(targetPos.X, 5, targetPos.Z) - Vector3.new(currentPos.X, 5, currentPos.Z)).Magnitude
-    local horizontalTween = TweenService:Create(hrp, TweenInfo.new(distance/10, Enum.EasingStyle.Linear), {CFrame = horizontalCFrame})
-    horizontalTween:Play()
-    horizontalTween.Completed:Wait()
+    -- Update floor position
+    local function updateFloor()
+        if virtualFloor and virtualFloor.Parent then
+            virtualFloor.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 3.5, hrp.Position.Z)
+        end
+    end
     
-    -- Bước 3: Xuống vị trí Y cuối
-    local finalTween = TweenService:Create(hrp, TweenInfo.new(math.abs(targetPos.Y - 5)/10, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
-    finalTween:Play()
-    finalTween.Completed:Wait()
+    local floorConnection = RunService.Heartbeat:Connect(updateFloor)
+    
+    -- Tween với speed = 10
+    local tween = TweenService:Create(hrp, TweenInfo.new(distance/10, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    tween:Play()
+    tween.Completed:Wait()
+    
+    -- Cleanup
+    if floorConnection then floorConnection:Disconnect() end
+    if virtualFloor and virtualFloor.Parent then virtualFloor:Destroy() end
 end
 
 -- Save position
